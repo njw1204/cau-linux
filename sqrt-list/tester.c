@@ -213,7 +213,7 @@ void sqrt_list_test(void)
     getrawmonotonic(&times[0]);
 
     sqrt_list_for_each(pos, &head) {
-        WARN_ON(list_entry(pos, struct sqrt_list_node, entry)->data != ++i);
+        WARN_ON(sqrt_list_entry(pos, struct sqrt_list_node, entry)->data != ++i);
         getrawmonotonic(&times[1]);
         calclock(times, &total_time_2, &total_count_2);
         getrawmonotonic(&times[0]);
@@ -222,7 +222,7 @@ void sqrt_list_test(void)
     i = 0;
 
     while (!sqrt_list_empty(&head)) {
-        WARN_ON(list_entry(head.next, struct sqrt_list_node, entry)->data != ++i);
+        WARN_ON(sqrt_list_entry(head.next, struct sqrt_list_node, entry)->data != ++i);
         getrawmonotonic(&times[0]);
         sqrt_list_del(head.next);
         getrawmonotonic(&times[1]);
