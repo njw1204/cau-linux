@@ -5,7 +5,7 @@
 #
 
 obj-m	+= sqrtlist.o
-sqrtlist-y	:= main.o calclock.o
+sqrtlist-y	:= main.o tester.o calclock.o
 KDIR	:= /lib/modules/$(shell uname -r)/build
 PWD	:= $(shell pwd)
 
@@ -14,3 +14,10 @@ default:
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
+
+run:
+	$(MAKE)
+	insmod sqrtlist.ko
+	rmmod sqrtlist.ko
+	$(MAKE) clean
+	dmesg | tail -n 19
