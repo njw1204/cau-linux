@@ -1,13 +1,14 @@
 #include <linux/kernel.h>
 #include <linux/ktime.h>
+#include <linux/xarray.h>
 #include "tester.h"
 #include "calclock.h"
 #include "linux/list.h"
 #include "linux/sqrt_list.h"
 
-#define TEST_SIZE 25000
+#define TEST_SIZE 20000
 
-struct array_node {
+struct xarray_node {
     int data;
 };
 
@@ -46,74 +47,79 @@ static int rand(unsigned int *seed)
     return result;
 }
 
-void array_test(void)
+void xarray_test(void)
 {
-    static struct array_node data[TEST_SIZE];
+    static struct xarray_node data[TEST_SIZE];
     int i, j;
-    int array_size = 0;
     unsigned int seed = 42;
-    unsigned long long total_time_1 = 0, total_count_1 = 0;
-    unsigned long long total_time_2 = 0, total_count_2 = 0;
-    unsigned long long total_time_3 = 0, total_count_3 = 0;
-    unsigned long long total_time_4 = 0, total_count_4 = 0;
-    struct array_node *pos_node;
+    unsigned long long total_time[10] = {0};
+    unsigned long long total_count[10] = {0};
+    unsigned long pos;
+    struct xarray_node *pos_node;
+    struct xarray arr;
+    int arr_size = 0;
     struct timespec times[2];
+
+    xa_init(&arr);
 
     for (i = 0; i < TEST_SIZE; i++) {
         int target = rand(&seed) % (i + 1);
         getrawmonotonic(&times[0]);
-        array_size++;
+        arr_size++;
 
-        for (j = array_size - 1; j > target; j--) {
-            data[j] = data[j - 1];
+        for (j = arr_size - 1; j > target; j--) {
+            xa_store(&arr, j, xa_load(&arr, j - 1), GFP_KERNEL);
         }
 
-        data[target].data = target;
+        xa_store(&arr, target, &data[target], GFP_KERNEL);
         getrawmonotonic(&times[1]);
-        calclock(times, &total_time_3, &total_count_3);
+        calclock(times, &total_time[0], &total_count[0]);
     }
 
     for (i = 0; i < TEST_SIZE; i++) {
         data[i].data = i;
+        xa_store(&arr, i, &data[i], GFP_KERNEL);
     }
 
     for (i = 0; i < TEST_SIZE; i++) {
         int target = rand(&seed) % TEST_SIZE;
         getrawmonotonic(&times[0]);
-        pos_node = &data[target];
+        pos_node = xa_load(&arr, target);
         WARN_ON(pos_node->data != target);
         getrawmonotonic(&times[1]);
-        calclock(times, &total_time_1, &total_count_1);
+        calclock(times, &total_time[1], &total_count[1]);
     }
 
+    i = 0;
     getrawmonotonic(&times[0]);
 
-    for (i = 0; i < TEST_SIZE; i++) {
-        pos_node = &data[i];
-        WARN_ON(pos_node->data != i);
+    xa_for_each(&arr, pos, pos_node) {
+        WARN_ON(pos_node->data != i++);
         getrawmonotonic(&times[1]);
-        calclock(times, &total_time_2, &total_count_2);
+        calclock(times, &total_time[2], &total_count[2]);
         getrawmonotonic(&times[0]);
     }
 
     for (i = TEST_SIZE; i >= 1; i--) {
         int target = rand(&seed) % i;
         getrawmonotonic(&times[0]);
-        array_size--;
+        arr_size--;
 
-        for (j = target; j < array_size; j++) {
-            data[j] = data[j + 1];
+        for (j = target; j < arr_size; j++) {
+            xa_store(&arr, j, xa_load(&arr, j + 1), GFP_KERNEL);
         }
 
+        xa_erase(&arr, arr_size);
         getrawmonotonic(&times[1]);
-        calclock(times, &total_time_4, &total_count_4);
+        calclock(times, &total_time[3], &total_count[3]);
     }
 
-    printk("array_test     (random access)    : %5llu.%02llu ms (%llu times)\n", total_time_1 / MILLION, total_time_1 * 100 / MILLION % 100, total_count_1);
-    printk("array_test     (sequential access): %5llu.%02llu ms (%llu times)\n", total_time_2 / MILLION, total_time_2 * 100 / MILLION % 100, total_count_2);
-    printk("array_test     (insert)           : %5llu.%02llu ms (%llu times)\n", total_time_3 / MILLION, total_time_3 * 100 / MILLION % 100, total_count_3);
-    printk("array_test     (delete)           : %5llu.%02llu ms (%llu times)\n", total_time_4 / MILLION, total_time_4 * 100 / MILLION % 100, total_count_4);
-    printk("array_test     (total)            : \e[0;36m%5llu.%02llu ms\e[0m\n", (total_time_1 + total_time_2 + total_time_3 + total_time_4) / MILLION, (total_time_1 + total_time_2 + total_time_3 + total_time_4) * 100 / MILLION % 100);
+    xa_destroy(&arr);
+    printk("xarray_test    (random access)    : %5llu.%02llu ms (%llu times)\n", total_time[1] / MILLION, total_time[1] * 100 / MILLION % 100, total_count[1]);
+    printk("xarray_test    (sequential access): %5llu.%02llu ms (%llu times)\n", total_time[2] / MILLION, total_time[2] * 100 / MILLION % 100, total_count[2]);
+    printk("xarray_test    (insert)           : %5llu.%02llu ms (%llu times)\n", total_time[0] / MILLION, total_time[0] * 100 / MILLION % 100, total_count[0]);
+    printk("xarray_test    (delete)           : %5llu.%02llu ms (%llu times)\n", total_time[3] / MILLION, total_time[3] * 100 / MILLION % 100, total_count[3]);
+    printk("xarray_test    (total)            : \e[0;36m%5llu.%02llu ms\e[0m\n", (total_time[0] + total_time[1] + total_time[2] + total_time[3]) / MILLION, (total_time[0] + total_time[1] + total_time[2] + total_time[3]) * 100 / MILLION % 100);
 }
 
 void list_test(void)
@@ -121,10 +127,8 @@ void list_test(void)
     static struct list_node data[TEST_SIZE];
     int i, j;
     unsigned int seed = 42;
-    unsigned long long total_time_1 = 0, total_count_1 = 0;
-    unsigned long long total_time_2 = 0, total_count_2 = 0;
-    unsigned long long total_time_3 = 0, total_count_3 = 0;
-    unsigned long long total_time_4 = 0, total_count_4 = 0;
+    unsigned long long total_time[10] = {0};
+    unsigned long long total_count[10] = {0};
     struct list_head *pos;
     struct list_head head;
     struct timespec times[2];
@@ -147,7 +151,7 @@ void list_test(void)
         getrawmonotonic(&times[0]);
         list_add(&new->entry, pos);
         getrawmonotonic(&times[1]);
-        calclock(times, &total_time_3, &total_count_3);
+        calclock(times, &total_time[0], &total_count[0]);
     }
 
     i = 0;
@@ -167,7 +171,7 @@ void list_test(void)
 
         WARN_ON(list_entry(pos, struct list_node, entry)->data != target);
         getrawmonotonic(&times[1]);
-        calclock(times, &total_time_1, &total_count_1);
+        calclock(times, &total_time[1], &total_count[1]);
     }
 
     i = 0;
@@ -176,7 +180,7 @@ void list_test(void)
     list_for_each(pos, &head) {
         WARN_ON(list_entry(pos, struct list_node, entry)->data != ++i);
         getrawmonotonic(&times[1]);
-        calclock(times, &total_time_2, &total_count_2);
+        calclock(times, &total_time[2], &total_count[2]);
         getrawmonotonic(&times[0]);
     }
 
@@ -191,14 +195,14 @@ void list_test(void)
         getrawmonotonic(&times[0]);
         list_del(pos);
         getrawmonotonic(&times[1]);
-        calclock(times, &total_time_4, &total_count_4);
+        calclock(times, &total_time[3], &total_count[3]);
     }
 
-    printk("list_test      (random access)    : %5llu.%02llu ms (%llu times)\n", total_time_1 / MILLION, total_time_1 * 100 / MILLION % 100, total_count_1);
-    printk("list_test      (sequential access): %5llu.%02llu ms (%llu times)\n", total_time_2 / MILLION, total_time_2 * 100 / MILLION % 100, total_count_2);
-    printk("list_test      (insert)           : %5llu.%02llu ms (%llu times)\n", total_time_3 / MILLION, total_time_3 * 100 / MILLION % 100, total_count_3);
-    printk("list_test      (delete)           : %5llu.%02llu ms (%llu times)\n", total_time_4 / MILLION, total_time_4 * 100 / MILLION % 100, total_count_4);
-    printk("list_test      (total)            : \e[0;36m%5llu.%02llu ms\e[0m\n", (total_time_1 + total_time_2 + total_time_3 + total_time_4) / MILLION, (total_time_1 + total_time_2 + total_time_3 + total_time_4) * 100 / MILLION % 100);
+    printk("list_test      (random access)    : %5llu.%02llu ms (%llu times)\n", total_time[1] / MILLION, total_time[1] * 100 / MILLION % 100, total_count[1]);
+    printk("list_test      (sequential access): %5llu.%02llu ms (%llu times)\n", total_time[2] / MILLION, total_time[2] * 100 / MILLION % 100, total_count[2]);
+    printk("list_test      (insert)           : %5llu.%02llu ms (%llu times)\n", total_time[0] / MILLION, total_time[0] * 100 / MILLION % 100, total_count[0]);
+    printk("list_test      (delete)           : %5llu.%02llu ms (%llu times)\n", total_time[3] / MILLION, total_time[3] * 100 / MILLION % 100, total_count[3]);
+    printk("list_test      (total)            : \e[0;36m%5llu.%02llu ms\e[0m\n", (total_time[0] + total_time[1] + total_time[2] + total_time[3]) / MILLION, (total_time[0] + total_time[1] + total_time[2] + total_time[3]) * 100 / MILLION % 100);
 }
 
 void sqrt_list_test(void)
@@ -206,10 +210,8 @@ void sqrt_list_test(void)
     static struct sqrt_list_node data[TEST_SIZE];
     int i;
     unsigned int seed = 42;
-    unsigned long long total_time_1 = 0, total_count_1 = 0;
-    unsigned long long total_time_2 = 0, total_count_2 = 0;
-    unsigned long long total_time_3 = 0, total_count_3 = 0;
-    unsigned long long total_time_4 = 0, total_count_4 = 0;
+    unsigned long long total_time[10] = {0};
+    unsigned long long total_count[10] = {0};
     struct sqrt_list_head *pos;
     struct sqrt_list_head head;
     struct timespec times[2];
@@ -228,7 +230,7 @@ void sqrt_list_test(void)
         getrawmonotonic(&times[0]);
         sqrt_list_add(&new->entry, pos);
         getrawmonotonic(&times[1]);
-        calclock(times, &total_time_3, &total_count_3);
+        calclock(times, &total_time[0], &total_count[0]);
     }
 
     i = 0;
@@ -243,7 +245,7 @@ void sqrt_list_test(void)
         pos = sqrt_list_nth(&head, target);
         WARN_ON(sqrt_list_entry(pos, struct sqrt_list_node, entry)->data != target);
         getrawmonotonic(&times[1]);
-        calclock(times, &total_time_1, &total_count_1);
+        calclock(times, &total_time[1], &total_count[1]);
     }
 
     i = 0;
@@ -252,7 +254,7 @@ void sqrt_list_test(void)
     sqrt_list_for_each(pos, &head) {
         WARN_ON(sqrt_list_entry(pos, struct sqrt_list_node, entry)->data != ++i);
         getrawmonotonic(&times[1]);
-        calclock(times, &total_time_2, &total_count_2);
+        calclock(times, &total_time[2], &total_count[2]);
         getrawmonotonic(&times[0]);
     }
 
@@ -262,12 +264,12 @@ void sqrt_list_test(void)
         getrawmonotonic(&times[0]);
         sqrt_list_del(pos);
         getrawmonotonic(&times[1]);
-        calclock(times, &total_time_4, &total_count_4);
+        calclock(times, &total_time[3], &total_count[3]);
     }
 
-    printk("sqrt_list_test (random access)    : %5llu.%02llu ms (%llu times)\n", total_time_1 / MILLION, total_time_1 * 100 / MILLION % 100, total_count_1);
-    printk("sqrt_list_test (sequential access): %5llu.%02llu ms (%llu times)\n", total_time_2 / MILLION, total_time_2 * 100 / MILLION % 100, total_count_2);
-    printk("sqrt_list_test (insert)           : %5llu.%02llu ms (%llu times)\n", total_time_3 / MILLION, total_time_3 * 100 / MILLION % 100, total_count_3);
-    printk("sqrt_list_test (delete)           : %5llu.%02llu ms (%llu times)\n", total_time_4 / MILLION, total_time_4 * 100 / MILLION % 100, total_count_4);
-    printk("sqrt_list_test (total)            : \e[0;36m%5llu.%02llu ms\e[0m\n", (total_time_1 + total_time_2 + total_time_3 + total_time_4) / MILLION, (total_time_1 + total_time_2 + total_time_3 + total_time_4) * 100 / MILLION % 100);
+    printk("sqrt_list_test (random access)    : %5llu.%02llu ms (%llu times)\n", total_time[1] / MILLION, total_time[1] * 100 / MILLION % 100, total_count[1]);
+    printk("sqrt_list_test (sequential access): %5llu.%02llu ms (%llu times)\n", total_time[2] / MILLION, total_time[2] * 100 / MILLION % 100, total_count[2]);
+    printk("sqrt_list_test (insert)           : %5llu.%02llu ms (%llu times)\n", total_time[0] / MILLION, total_time[0] * 100 / MILLION % 100, total_count[0]);
+    printk("sqrt_list_test (delete)           : %5llu.%02llu ms (%llu times)\n", total_time[3] / MILLION, total_time[3] * 100 / MILLION % 100, total_count[3]);
+    printk("sqrt_list_test (total)            : \e[0;36m%5llu.%02llu ms\e[0m\n", (total_time[0] + total_time[1] + total_time[2] + total_time[3]) / MILLION, (total_time[0] + total_time[1] + total_time[2] + total_time[3]) * 100 / MILLION % 100);
 }

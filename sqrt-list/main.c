@@ -6,7 +6,7 @@
 static int __init sqrt_list_module_init(void)
 {
     printk("====== SQRT List Module Init ======\n");
-    array_test();
+    xarray_test();
     printk("\n");
     list_test();
     printk("\n");
