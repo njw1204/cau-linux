@@ -109,11 +109,11 @@ void array_test(void)
         calclock(times, &total_time_4, &total_count_4);
     }
 
-    printk("array_test     (random access)    : %10llu ns (%llu times)\n", total_time_1, total_count_1);
-    printk("array_test     (sequential access): %10llu ns (%llu times)\n", total_time_2, total_count_2);
-    printk("array_test     (insert)           : %10llu ns (%llu times)\n", total_time_3, total_count_3);
-    printk("array_test     (delete)           : %10llu ns (%llu times)\n", total_time_4, total_count_4);
-    printk("array_test     (total)            : \e[0;36m%10llu ns\e[0m\n", total_time_1 + total_time_2 + total_time_3 + total_time_4);
+    printk("array_test     (random access)    : %5llu.%02llu ms (%llu times)\n", total_time_1 / MILLION, total_time_1 * 100 / MILLION % 100, total_count_1);
+    printk("array_test     (sequential access): %5llu.%02llu ms (%llu times)\n", total_time_2 / MILLION, total_time_2 * 100 / MILLION % 100, total_count_2);
+    printk("array_test     (insert)           : %5llu.%02llu ms (%llu times)\n", total_time_3 / MILLION, total_time_3 * 100 / MILLION % 100, total_count_3);
+    printk("array_test     (delete)           : %5llu.%02llu ms (%llu times)\n", total_time_4 / MILLION, total_time_4 * 100 / MILLION % 100, total_count_4);
+    printk("array_test     (total)            : \e[0;36m%5llu.%02llu ms\e[0m\n", (total_time_1 + total_time_2 + total_time_3 + total_time_4) / MILLION, (total_time_1 + total_time_2 + total_time_3 + total_time_4) * 100 / MILLION % 100);
 }
 
 void list_test(void)
@@ -194,11 +194,11 @@ void list_test(void)
         calclock(times, &total_time_4, &total_count_4);
     }
 
-    printk("list_test      (random access)    : %10llu ns (%llu times)\n", total_time_1, total_count_1);
-    printk("list_test      (sequential access): %10llu ns (%llu times)\n", total_time_2, total_count_2);
-    printk("list_test      (insert)           : %10llu ns (%llu times)\n", total_time_3, total_count_3);
-    printk("list_test      (delete)           : %10llu ns (%llu times)\n", total_time_4, total_count_4);
-    printk("list_test      (total)            : \e[0;36m%10llu ns\e[0m\n", total_time_1 + total_time_2 + total_time_3 + total_time_4);
+    printk("list_test      (random access)    : %5llu.%02llu ms (%llu times)\n", total_time_1 / MILLION, total_time_1 * 100 / MILLION % 100, total_count_1);
+    printk("list_test      (sequential access): %5llu.%02llu ms (%llu times)\n", total_time_2 / MILLION, total_time_2 * 100 / MILLION % 100, total_count_2);
+    printk("list_test      (insert)           : %5llu.%02llu ms (%llu times)\n", total_time_3 / MILLION, total_time_3 * 100 / MILLION % 100, total_count_3);
+    printk("list_test      (delete)           : %5llu.%02llu ms (%llu times)\n", total_time_4 / MILLION, total_time_4 * 100 / MILLION % 100, total_count_4);
+    printk("list_test      (total)            : \e[0;36m%5llu.%02llu ms\e[0m\n", (total_time_1 + total_time_2 + total_time_3 + total_time_4) / MILLION, (total_time_1 + total_time_2 + total_time_3 + total_time_4) * 100 / MILLION % 100);
 }
 
 void sqrt_list_test(void)
@@ -265,9 +265,9 @@ void sqrt_list_test(void)
         calclock(times, &total_time_4, &total_count_4);
     }
 
-    printk("sqrt_list_test (random access)    : %10llu ns (%llu times)\n", total_time_1, total_count_1);
-    printk("sqrt_list_test (sequential access): %10llu ns (%llu times)\n", total_time_2, total_count_2);
-    printk("sqrt_list_test (insert)           : %10llu ns (%llu times)\n", total_time_3, total_count_3);
-    printk("sqrt_list_test (delete)           : %10llu ns (%llu times)\n", total_time_4, total_count_4);
-    printk("sqrt_list_test (total)            : \e[0;36m%10llu ns\e[0m\n", total_time_1 + total_time_2 + total_time_3 + total_time_4);
+    printk("sqrt_list_test (random access)    : %5llu.%02llu ms (%llu times)\n", total_time_1 / MILLION, total_time_1 * 100 / MILLION % 100, total_count_1);
+    printk("sqrt_list_test (sequential access): %5llu.%02llu ms (%llu times)\n", total_time_2 / MILLION, total_time_2 * 100 / MILLION % 100, total_count_2);
+    printk("sqrt_list_test (insert)           : %5llu.%02llu ms (%llu times)\n", total_time_3 / MILLION, total_time_3 * 100 / MILLION % 100, total_count_3);
+    printk("sqrt_list_test (delete)           : %5llu.%02llu ms (%llu times)\n", total_time_4 / MILLION, total_time_4 * 100 / MILLION % 100, total_count_4);
+    printk("sqrt_list_test (total)            : \e[0;36m%5llu.%02llu ms\e[0m\n", (total_time_1 + total_time_2 + total_time_3 + total_time_4) / MILLION, (total_time_1 + total_time_2 + total_time_3 + total_time_4) * 100 / MILLION % 100);
 }
