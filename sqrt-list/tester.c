@@ -5,7 +5,7 @@
 #include "linux/list.h"
 #include "linux/sqrt_list.h"
 
-#define TEST_SIZE 100000
+#define TEST_SIZE 25000
 
 struct array_node {
     int data;
@@ -48,7 +48,7 @@ static int rand(unsigned int *seed)
 
 void array_test(void)
 {
-    static struct array_node data[TEST_SIZE * 2];
+    static struct array_node data[TEST_SIZE];
     int i, j;
     int array_size = 0;
     unsigned int seed = 42;
@@ -59,21 +59,26 @@ void array_test(void)
     struct array_node *pos_node;
     struct timespec times[2];
 
-    for (i = TEST_SIZE; i >= 1; i--) {
+    for (i = 0; i < TEST_SIZE; i++) {
+        int target = rand(&seed) % (i + 1);
         getrawmonotonic(&times[0]);
         array_size++;
 
-        for (j = array_size; j >= 2; j--) {
+        for (j = array_size - 1; j > target; j--) {
             data[j] = data[j - 1];
         }
 
-        data[1].data = i;
+        data[target].data = target;
         getrawmonotonic(&times[1]);
         calclock(times, &total_time_3, &total_count_3);
     }
 
     for (i = 0; i < TEST_SIZE; i++) {
-        int target = rand(&seed) % TEST_SIZE + 1;
+        data[i].data = i;
+    }
+
+    for (i = 0; i < TEST_SIZE; i++) {
+        int target = rand(&seed) % TEST_SIZE;
         getrawmonotonic(&times[0]);
         pos_node = &data[target];
         WARN_ON(pos_node->data != target);
@@ -81,22 +86,22 @@ void array_test(void)
         calclock(times, &total_time_1, &total_count_1);
     }
 
-    j = 0;
     getrawmonotonic(&times[0]);
 
-    for (i = 1; i <= TEST_SIZE; i++) {
+    for (i = 0; i < TEST_SIZE; i++) {
         pos_node = &data[i];
-        WARN_ON(pos_node->data != ++j);
+        WARN_ON(pos_node->data != i);
         getrawmonotonic(&times[1]);
         calclock(times, &total_time_2, &total_count_2);
         getrawmonotonic(&times[0]);
     }
 
-    for (i = 0; i < TEST_SIZE; i++) {
+    for (i = TEST_SIZE; i >= 1; i--) {
+        int target = rand(&seed) % i;
         getrawmonotonic(&times[0]);
         array_size--;
 
-        for (j = 1; j <= array_size; j++) {
+        for (j = target; j < array_size; j++) {
             data[j] = data[j + 1];
         }
 
@@ -126,13 +131,29 @@ void list_test(void)
 
     INIT_LIST_HEAD(&head);
 
-    for (i = TEST_SIZE; i >= 1; i--) {
-        struct list_node *new = &data[i - 1];
-        new->data = i;
+    for (i = 0; i < TEST_SIZE; i++) {
+        struct list_node *new = &data[i];
+        int target = rand(&seed) % (i + 1);
+        pos = &head;
+
+        if (target > 0) {
+            j = 0;
+
+            list_for_each(pos, &head) {
+                if (++j == target) break;
+            }
+        }
+
         getrawmonotonic(&times[0]);
-        list_add(&new->entry, &head);
+        list_add(&new->entry, pos);
         getrawmonotonic(&times[1]);
         calclock(times, &total_time_3, &total_count_3);
+    }
+
+    i = 0;
+
+    list_for_each(pos, &head) {
+        list_entry(pos, struct list_node, entry)->data = ++i;
     }
 
     for (i = 0; i < TEST_SIZE; i++) {
@@ -159,12 +180,16 @@ void list_test(void)
         getrawmonotonic(&times[0]);
     }
 
-    i = 0;
+    for (i = TEST_SIZE; i >= 1; i--) {
+        int target = rand(&seed) % i + 1;
+        j = 0;
 
-    while (!list_empty(&head)) {
-        WARN_ON(list_entry(head.next, struct list_node, entry)->data != ++i);
+        list_for_each(pos, &head) {
+            if (++j == target) break;
+        }
+
         getrawmonotonic(&times[0]);
-        list_del(head.next);
+        list_del(pos);
         getrawmonotonic(&times[1]);
         calclock(times, &total_time_4, &total_count_4);
     }
@@ -191,20 +216,32 @@ void sqrt_list_test(void)
 
     INIT_SQRT_LIST_HEAD(&head);
 
-    for (i = TEST_SIZE; i >= 1; i--) {
-        struct sqrt_list_node *new = &data[i - 1];
-        new->data = i;
+    for (i = 0; i < TEST_SIZE; i++) {
+        struct sqrt_list_node *new = &data[i];
+        int target = rand(&seed) % (i + 1);
+        pos = &head;
+
+        if (target > 0) {
+            pos = sqrt_list_nth(&head, target);
+        }
+
         getrawmonotonic(&times[0]);
-        sqrt_list_add(&new->entry, &head);
+        sqrt_list_add(&new->entry, pos);
         getrawmonotonic(&times[1]);
         calclock(times, &total_time_3, &total_count_3);
+    }
+
+    i = 0;
+
+    sqrt_list_for_each(pos, &head) {
+        sqrt_list_entry(pos, struct sqrt_list_node, entry)->data = ++i;
     }
 
     for (i = 0; i < TEST_SIZE; i++) {
         int target = rand(&seed) % TEST_SIZE + 1;
         getrawmonotonic(&times[0]);
         pos = sqrt_list_nth(&head, target);
-        WARN_ON(list_entry(pos, struct sqrt_list_node, entry)->data != target);
+        WARN_ON(sqrt_list_entry(pos, struct sqrt_list_node, entry)->data != target);
         getrawmonotonic(&times[1]);
         calclock(times, &total_time_1, &total_count_1);
     }
@@ -219,12 +256,11 @@ void sqrt_list_test(void)
         getrawmonotonic(&times[0]);
     }
 
-    i = 0;
-
-    while (!sqrt_list_empty(&head)) {
-        WARN_ON(sqrt_list_entry(head.next, struct sqrt_list_node, entry)->data != ++i);
+    for (i = TEST_SIZE; i >= 1; i--) {
+        int target = rand(&seed) % i + 1;
+        pos = sqrt_list_nth(&head, target);
         getrawmonotonic(&times[0]);
-        sqrt_list_del(head.next);
+        sqrt_list_del(pos);
         getrawmonotonic(&times[1]);
         calclock(times, &total_time_4, &total_count_4);
     }
