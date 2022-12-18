@@ -1,0 +1,14 @@
+; -- start job file --
+[global]
+name=pxt4test
+directory=/mnt/pxt4test
+rw=write
+bs=4K
+direct=0
+numjobs=4
+verify=meta
+
+[fio-test]
+size=3G
+group_reporting
+; -- end job file --
